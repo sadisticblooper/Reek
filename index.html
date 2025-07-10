@@ -1,67 +1,81 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Personal Diary</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-blue-50 font-sans p-4">
-  <div class="max-w-xl mx-auto bg-white shadow p-4 rounded">
-    <h1 class="text-2xl font-bold mb-4">📖 My Diary</h1>
-    <input id="search" type="text" placeholder="Search..." class="border p-2 w-full mb-3 rounded" />
-    <div class="mb-3">
-      <input id="date" type="date" class="border p-2 rounded w-full" />
-    </div>
-    <textarea id="entry" placeholder="Write something..." class="border p-2 w-full h-40 mb-3 rounded"></textarea>
-    <div class="flex gap-2 mb-3">
-      <button onclick="saveEntry()" class="bg-green-500 text-white px-3 py-1 rounded">💾 Save</button>
-      <button onclick="deleteEntry()" class="bg-red-500 text-white px-3 py-1 rounded">🗑 Delete</button>
-    </div>
-    <div id="results" class="text-sm text-gray-700"></div>
-  </div>
+<script>
+  const API_BASE = "https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec";
+  let entries = {};
 
-  <script>
-    const API_BASE = "https://script.google.com/macros/s/AKfycbyHITB2hwN5eLw1oS2e9fesphvNF8nVyfiT6P_Du3TfE-JiMkoSVxOYwx65eszq3eqP/exec";
+  async function loadAll() {
+    try {
+      const res = await fetch(`${API_BASE}?action=getAllEntries`);
+      entries = await res.json();
+      console.log("✅ Loaded entries:", entries);
+    } catch (e) {
+      console.error("❌ Failed to load entries", e);
+      alert("Failed to load diary data.");
+    }
+  }
 
-    async function loadAll() {
-      const res = await fetch(API_BASE + "?action=getAllEntries");
-      const data = await res.json();
-      window.entries = data;
+  document.getElementById("date").addEventListener("change", () => {
+    const date = document.getElementById("date").value;
+    if (!date) return;
+    if (entries[date]) {
+      document.getElementById("entry").value = entries[date].content;
+    } else {
+      document.getElementById("entry").value = "";
+    }
+  });
+
+  async function saveEntry() {
+    const date = document.getElementById("date").value;
+    const entry = document.getElementById("entry").value;
+
+    if (!date || !entry.trim()) {
+      alert("Please enter a valid date and diary entry.");
+      return;
     }
 
-    async function saveEntry() {
-      const date = document.getElementById("date").value;
-      const entry = document.getElementById("entry").value;
+    try {
       const res = await fetch(API_BASE, {
         method: "POST",
         body: JSON.stringify({ action: "save", date, entry }),
         headers: { "Content-Type": "application/json" }
       });
       const json = await res.json();
-      alert(json.status);
-      await loadAll();
+      alert(json.status || "Saved.");
+      await loadAll(); // Refresh local data
+    } catch (e) {
+      console.error("❌ Save failed", e);
+      alert("Failed to save entry.");
     }
+  }
 
-    async function deleteEntry() {
-      const date = document.getElementById("date").value;
+  async function deleteEntry() {
+    const date = document.getElementById("date").value;
+    if (!date) return alert("Pick a date first.");
+    if (!confirm("Delete entry for " + date + "?")) return;
+
+    try {
       const res = await fetch(API_BASE, {
         method: "POST",
         body: JSON.stringify({ action: "delete", date }),
         headers: { "Content-Type": "application/json" }
       });
       const json = await res.json();
-      alert(json.status);
+      alert(json.status || "Deleted.");
+      document.getElementById("entry").value = "";
       await loadAll();
+    } catch (e) {
+      console.error("❌ Delete failed", e);
+      alert("Failed to delete entry.");
     }
+  }
 
-    document.getElementById("search").addEventListener("input", async (e) => {
-      const keyword = e.target.value.trim();
-      if (!keyword) {
-        document.getElementById("results").innerHTML = "";
-        return;
-      }
-      const res = await fetch(API_BASE + "?action=search&q=" + encodeURIComponent(keyword));
+  document.getElementById("search").addEventListener("input", async (e) => {
+    const keyword = e.target.value.trim();
+    if (!keyword) {
+      document.getElementById("results").innerHTML = "";
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}?action=search&q=` + encodeURIComponent(keyword));
       const matches = await res.json();
       let html = "<ul>";
       for (const item of matches) {
@@ -69,9 +83,12 @@
       }
       html += "</ul>";
       document.getElementById("results").innerHTML = html;
-    });
+    } catch (e) {
+      console.error("❌ Search failed", e);
+      alert("Failed to search.");
+    }
+  });
 
-    loadAll();
-  </script>
-</body>
-</html>
+  // Load all entries on startup
+  loadAll();
+</script>
