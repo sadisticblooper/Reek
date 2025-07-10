@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal Diary</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-blue-50 font-sans p-4">
+  <div class="max-w-xl mx-auto bg-white shadow p-4 rounded">
+    <h1 class="text-2xl font-bold mb-4">📖 My Diary</h1>
+    <input id="search" type="text" placeholder="Search..." class="border p-2 w-full mb-3 rounded" />
+    <div class="mb-3">
+      <input id="date" type="date" class="border p-2 rounded w-full" />
+    </div>
+    <textarea id="entry" placeholder="Write something..." class="border p-2 w-full h-40 mb-3 rounded"></textarea>
+    <div class="flex gap-2 mb-3">
+      <button onclick="saveEntry()" class="bg-green-500 text-white px-3 py-1 rounded">💾 Save</button>
+      <button onclick="deleteEntry()" class="bg-red-500 text-white px-3 py-1 rounded">🗑 Delete</button>
+    </div>
+    <div id="results" class="text-sm text-gray-700"></div>
+  </div>
+
+  <script>
+    const API_BASE = "https://script.google.com/macros/s/AKfycbyHITB2hwN5eLw1oS2e9fesphvNF8nVyfiT6P_Du3TfE-JiMkoSVxOYwx65eszq3eqP/exec";
+
+    async function loadAll() {
+      const res = await fetch(API_BASE + "?action=getAllEntries");
+      const data = await res.json();
+      window.entries = data;
+    }
+
+    async function saveEntry() {
+      const date = document.getElementById("date").value;
+      const entry = document.getElementById("entry").value;
+      const res = await fetch(API_BASE, {
+        method: "POST",
+        body: JSON.stringify({ action: "save", date, entry }),
+        headers: { "Content-Type": "application/json" }
+      });
+      const json = await res.json();
+      alert(json.status);
+      await loadAll();
+    }
+
+    async function deleteEntry() {
+      const date = document.getElementById("date").value;
+      const res = await fetch(API_BASE, {
+        method: "POST",
+        body: JSON.stringify({ action: "delete", date }),
+        headers: { "Content-Type": "application/json" }
+      });
+      const json = await res.json();
+      alert(json.status);
+      await loadAll();
+    }
+
+    document.getElementById("search").addEventListener("input", async (e) => {
+      const keyword = e.target.value.trim();
+      if (!keyword) {
+        document.getElementById("results").innerHTML = "";
+        return;
+      }
+      const res = await fetch(API_BASE + "?action=search&q=" + encodeURIComponent(keyword));
+      const matches = await res.json();
+      let html = "<ul>";
+      for (const item of matches) {
+        html += `<li><strong>${item.date}</strong>: ${item.content.slice(0, 60)} <em>(${item.timestamp})</em></li>`;
+      }
+      html += "</ul>";
+      document.getElementById("results").innerHTML = html;
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>
